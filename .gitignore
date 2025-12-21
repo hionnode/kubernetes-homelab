@@ -1,0 +1,21 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+inventory/hosts.yml
+
+# Secrets
+*.pem
+*.key
+*secrets*
+*password*
+
+# OS
+.DS_Store
+*.swp
