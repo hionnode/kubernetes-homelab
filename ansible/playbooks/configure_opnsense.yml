@@ -1,0 +1,49 @@
+---
+- name: Configure OPNsense
+  hosts: opnsense
+  connection: local
+  gather_facts: false
+  vars:
+    # Set this to true to apply changes, false for dry-run
+    do_apply: true
+
+  tasks:
+    - name: Create Kubernetes VLAN 10
+      ansibleguy.opnsense.interface_vlan:
+        device: vlan0.10
+        tag: 10
+        interface: vtnet1 # Parent Interface (Default LAN)
+        description: "Kubernetes Cluster VLAN"
+        state: present
+
+    - name: Assign VLAN 10 to Interface (KUBE_NET)
+      ansibleguy.opnsense.interface:
+        name: "opt1" # Use opt1, opt2 etc.
+        description: "KUBE_NET"
+        device: "vlan0.10"
+        enabled: true
+        ipv4: "static"
+        ipv4_ip: "192.168.10.1"
+        ipv4_subnet: "24"
+        state: present
+
+    - name: Configure DHCP for KUBE_NET
+      ansibleguy.opnsense.dhcp_interface:
+        interface: "opt1"
+        enabled: true
+        range_from: "192.168.10.100"
+        range_to: "192.168.10.200"
+        dns_servers: ["1.1.1.1", "8.8.8.8"]
+        gateway: "192.168.10.1"
+        state: present
+
+    # - name: Setup Firewall Rule (Allow All on KUBE_NET for now)
+    #   ansibleguy.opnsense.firewall_rule:
+    #     interface: ["opt1"]
+    #     description: "Allow All Kube Net"
+    #     action: "pass"
+    #     direction: "in"
+    #     protocol: "any"
+    #     source: "any"
+    #     destination: "any"
+    #     state: present

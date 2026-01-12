@@ -10,6 +10,11 @@
 # Ansible
 *.retry
 inventory/hosts.yml
+ansible/inventory/hosts.ini
+
+# ISO Files
+*.iso
+*.bz2
 
 # Secrets
 *.pem
