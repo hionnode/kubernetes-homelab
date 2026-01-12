@@ -26,8 +26,14 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
       # No cloud-init for ISO install
   }
 
+  # WAN Interface (Internet)
   network_device {
-    bridge = var.network_bridge
+    bridge = "vmbr0"
+  }
+
+  # LAN Interface (Switch)
+  network_device {
+    bridge = "vmbr1"
   }
   
   # Set explicit boot order to prioritize CDROM (ide2 is default usually, let's assume cdrom interface below)

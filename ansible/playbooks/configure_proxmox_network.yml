@@ -1,0 +1,52 @@
+---
+- name: Configure Proxmox Network Bridges
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_host: "{{ lookup('env', 'PROXMOX_HOST') | default('192.168.1.110') }}"
+    proxmox_user: "root"
+    
+  tasks:
+    - name: Backup current network interfaces file
+      ansible.builtin.shell: |
+        ssh {{ proxmox_user }}@{{ proxmox_host }} "cp /etc/network/interfaces /etc/network/interfaces.backup.$(date +%Y%m%d-%H%M%S)"
+      delegate_to: localhost
+
+    - name: Add vmbr1 configuration to Proxmox
+      ansible.builtin.blockinfile:
+        path: /etc/network/interfaces
+        block: |
+          
+          iface enx1c860b363f63 inet manual
+
+          auto vmbr1
+          iface vmbr1 inet manual
+                  bridge-ports enx1c860b363f63
+                  bridge-stp off
+                  bridge-fd 0
+                  comment LAN Bridge for OPNsense
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - vmbr1"
+        create: no
+      delegate_to: "{{ proxmox_host }}"
+      become: yes
+
+    - name: Bring up enx1c860b363f63 interface
+      ansible.builtin.command: ip link set enx1c860b363f63 up
+      delegate_to: "{{ proxmox_host }}"
+      become: yes
+      ignore_errors: yes
+
+    - name: Apply network configuration
+      ansible.builtin.command: ifreload -a
+      delegate_to: "{{ proxmox_host }}"
+      become: yes
+
+    - name: Verify vmbr1 is up
+      ansible.builtin.command: ip link show vmbr1
+      delegate_to: "{{ proxmox_host }}"
+      register: vmbr1_status
+
+    - name: Display vmbr1 status
+      ansible.builtin.debug:
+        var: vmbr1_status.stdout_lines

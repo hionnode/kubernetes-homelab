@@ -6,8 +6,9 @@
   vars:
     do_apply: true
     # Define the firewall dictionary required by ansibleguy modules
+    # Note: ansibleguy expects 'ip', not 'url'.
     opnsense_connection:
-      url: "{{ opnsense_url }}"
+      ip: "{{ opnsense_url | regex_replace('^https?://', '') }}"
       api_key: "{{ opnsense_api_key }}"
       api_secret: "{{ opnsense_api_secret }}"
       ssl_verify: "{{ opnsense_ssl_verify | default(false) }}"
