@@ -7,11 +7,17 @@ terraform {
 }
 
   required_providers {
-     proxmox = {
-    source = "bpg/proxmox"
-    version = "~> 0.70.0"
-}
-}
-  
-  
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = "~> 0.70.0"
+    }
+    opnsense = {
+      source  = "browningluke/opnsense"
+      version = "~> 0.11.0"
+    }
+    talos = {
+      source  = "siderolabs/talos"
+      version = "~> 0.7.0"
+    }
+  }
 }

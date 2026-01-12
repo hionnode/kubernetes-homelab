@@ -4,7 +4,7 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
+# .terraform.lock.hcl
 *.conf
 
 # Ansible

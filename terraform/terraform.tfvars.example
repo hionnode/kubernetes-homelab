@@ -1,0 +1,16 @@
+proxmox_endpoint = "https://192.168.1.100:8006/"
+proxmox_username = "terraform@pve"
+proxmox_password = "password"
+proxmox_node     = "pve"
+vm_id            = "100"
+vm_name          = "opnsense"
+vm_memory        = 4096
+vm_cores         = 2
+vm_disk_size     = 32
+iso_file_id      = "local:iso/OPNsense-23.7-dvd-amd64.iso"
+network_bridge   = "vmbr0"
+
+# OPNsense Provider Configuration
+opnsense_uri        = "https://192.168.1.1"
+opnsense_api_key    = "your_api_key_here"
+opnsense_api_secret = "your_api_secret_here"

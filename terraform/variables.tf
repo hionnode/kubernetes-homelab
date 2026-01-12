@@ -54,3 +54,36 @@ variable "vm_disk_size" {
   sensitive = false
   default = 16
 }
+
+variable "iso_file_id" {
+  description = "ISO file ID for OPNsense (e.g. local:iso/OPNsense.iso)"
+  type = string
+  sensitive = false
+}
+
+
+variable "opnsense_uri" {
+  description = "URI for OPNsense API (e.g. https://192.168.1.1)"
+  type        = string
+  sensitive   = false
+  default     = "https://192.168.1.1" # Default fallback, user should override
+}
+
+variable "opnsense_api_key" {
+  description = "OPNsense API Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "opnsense_api_secret" {
+  description = "OPNsense API Secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "network_bridge" {
+  description = "Network bridge to use (e.g. vmbr0)"
+  type = string
+  sensitive = false
+  default = "vmbr0"
+}
