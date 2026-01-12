@@ -30,8 +30,18 @@ resource "proxmox_virtual_environment_vm" "opnsense" {
     bridge = var.network_bridge
   }
   
+  # Set explicit boot order to prioritize CDROM (ide2 is default usually, let's assume cdrom interface below)
+  # bpg/proxmox often uses 'order' string or list.
+  # Checking recent docs, 'boot_order' is a list of device IDs.
+  # We need to see what interface cdrom gets. The plan said 'ide3'.
+  # So we set order to ["ide3", "scsi0", "net0"]
+  
+  boot_order = ["ide3", "scsi0"]
+
   cdrom {
-     file_id = var.iso_file_id
+     enabled = true
+     file_id = proxmox_virtual_environment_download_file.opnsense_iso.id
+     interface = "ide3" # Explicitly set interface to match boot order
   }
 
   operating_system {

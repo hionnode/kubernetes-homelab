@@ -55,11 +55,12 @@ variable "vm_disk_size" {
   default = 16
 }
 
-variable "iso_file_id" {
-  description = "ISO file ID for OPNsense (e.g. local:iso/OPNsense.iso)"
-  type = string
-  sensitive = false
-}
+
+# variable "iso_file_id" {
+#   description = "ISO file ID for OPNsense (e.g. local:iso/OPNsense.iso)"
+#   type = string
+#   sensitive = false
+# }
 
 
 variable "opnsense_uri" {
@@ -79,6 +80,14 @@ variable "opnsense_api_secret" {
   description = "OPNsense API Secret"
   type        = string
   sensitive   = true
+}
+
+
+variable "opnsense_iso_url" {
+  description = "URL to download OPNsense ISO"
+  type        = string
+  sensitive   = false
+  default     = "https://pkg.opnsense.org/releases/25.7/OPNsense-25.7-dvd-amd64.iso.bz2"
 }
 
 variable "network_bridge" {
