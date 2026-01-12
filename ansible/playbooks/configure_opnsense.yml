@@ -4,31 +4,55 @@
   connection: local
   gather_facts: false
   vars:
-    # Set this to true to apply changes, false for dry-run
     do_apply: true
+    # Define the firewall dictionary required by ansibleguy modules
+    opnsense_connection:
+      url: "{{ opnsense_url }}"
+      api_key: "{{ opnsense_api_key }}"
+      api_secret: "{{ opnsense_api_secret }}"
+      ssl_verify: "{{ opnsense_ssl_verify | default(false) }}"
 
   tasks:
     - name: Create Kubernetes VLAN 10
       ansibleguy.opnsense.interface_vlan:
+        firewall: "{{ opnsense_connection }}"
         device: vlan0.10
         tag: 10
-        interface: vtnet1 # Parent Interface (Default LAN)
+        interface: vtnet1
         description: "Kubernetes Cluster VLAN"
         state: present
 
     - name: Assign VLAN 10 to Interface (KUBE_NET)
-      ansibleguy.opnsense.interface:
-        name: "opt1" # Use opt1, opt2 etc.
-        description: "KUBE_NET"
-        device: "vlan0.10"
-        enabled: true
-        ipv4: "static"
-        ipv4_ip: "192.168.10.1"
-        ipv4_subnet: "24"
+      puzzle.opnsense.interfaces_assignments:
+        interfaces:
+          opt1: "vlan0.10"
         state: present
+    
+    # ... (Direct API for IP) ...
+    
+    - name: Enable KUBE_NET (opt1) and set IP
+      uri:
+        # ... (URI module uses individual vars, no change needed) ...
+        url: "{{ opnsense_url }}/api/interfaces/interfaces/set"
+        method: POST
+        user: "{{ opnsense_api_key }}"
+        password: "{{ opnsense_api_secret }}"
+        body_format: json
+        body:
+          id: "opt1"
+          enable: "1"
+          ipaddr: "192.168.10.1"
+          subnet: "24"
+          description: "KUBE_NET"
+          if: "opt1"
+        validate_certs: "{{ opnsense_ssl_verify | default(false) }}"
+        status_code: 200
+      register: interface_set
+      ignore_errors: yes
 
     - name: Configure DHCP for KUBE_NET
-      ansibleguy.opnsense.dhcp_interface:
+      ansibleguy.opnsense.dhcp_subnet:
+        firewall: "{{ opnsense_connection }}"
         interface: "opt1"
         enabled: true
         range_from: "192.168.10.100"
