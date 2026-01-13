@@ -35,20 +35,28 @@ curl -sL https://talos.dev/install | sh
 talosctl version --client
 ```
 
-### On OPNsense
+### On OPNsense (via Web UI)
 
 Configure DHCP reservations for predictable IPs:
 
-**Services → DHCPv4 → LAN → DHCP Static Mappings:**
+**Services → DHCPv4 → LAN → Scroll to DHCP Static Mappings → Click +**
 
-| MAC Address | IP Address | Hostname |
-|-------------|------------|----------|
-| (VM net1)   | 10.0.0.10  | talos-cp-1 |
-| (Physical)  | 10.0.0.11  | talos-cp-2 |
-| (Physical)  | 10.0.0.12  | talos-cp-3 |
-| (Physical)  | 10.0.0.20  | talos-worker-1 |
-| (Physical)  | 10.0.0.21  | talos-worker-2 |
-| (Physical)  | 10.0.0.22  | talos-worker-3 |
+For each node, add:
+- **MAC Address**: Get from Proxmox VM config or boot node and check leases
+- **IP Address**: As shown below
+- **Hostname**: Node name
+- **Description**: Role
+
+| Hostname | IP Address | Role |
+|----------|------------|------|
+| talos-cp-1 | 10.0.0.10 | Control Plane (VM) |
+| talos-cp-2 | 10.0.0.11 | Control Plane (Physical) |
+| talos-cp-3 | 10.0.0.12 | Control Plane (Physical) |
+| talos-worker-1 | 10.0.0.20 | Worker |
+| talos-worker-2 | 10.0.0.21 | Worker |
+| talos-worker-3 | 10.0.0.22 | Worker |
+
+> 📖 See [opnsense-configuration-guide.md](opnsense-configuration-guide.md) for detailed OPNsense UI steps
 
 ---
 
