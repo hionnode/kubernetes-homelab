@@ -1,0 +1,10 @@
+- [x] Phase 1: OPNsense VM Deployment (Terraform)
+- [x] Phase 1: Ansible Setup & Dependencies
+- [/] Phase 1: Network Gateway Configuration
+    - [x] Create Proxmox Network Playbook (vmbr1)
+    - [ ] Run Proxmox Network Configuration
+    - [ ] Update OPNsense VM for Dual-NIC (Terraform)
+    - [ ] Manual: OPNsense Interface Assignment
+    - [ ] Update OPNsense Ansible for NAT/Firewall
+- [ ] Phase 2: Talos Bootstrap
+- [ ] Phase 3: Cluster Services

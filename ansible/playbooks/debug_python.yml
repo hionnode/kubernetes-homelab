@@ -1,0 +1,17 @@
+---
+- name: Debug Python
+  hosts: opnsense
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Show Python Interpreter
+      debug:
+        msg: "Python executable being used: {{ ansible_playbook_python }} vs {{ ansible_python_interpreter | default('NOT SET') }}"
+
+    - name: Check httpx import in module
+      command: "{{ ansible_python_interpreter | default('/usr/bin/python3') }} -c 'import httpx; print(httpx.__version__)'"
+      register: httpx_check
+      ignore_errors: true
+
+    - debug:
+        var: httpx_check

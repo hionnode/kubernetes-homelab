@@ -1,0 +1,71 @@
+# This file is maintained automatically by "terraform init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/bpg/proxmox" {
+  version     = "0.70.1"
+  constraints = "~> 0.70.0"
+  hashes = [
+    "h1:3b2ySzXTumBdQ8KGuTc2vlPoAxGjJzZFIKYzYDYM0AA=",
+    "zh:1f3ca7b12fad410a3689e30f058ce210a8f4e5a13b25c5862acb62c9a6859cd5",
+    "zh:2669b0548f039e874a9f84362960fb5a479144a9c5bd3c1626b3aa9ec2b41e26",
+    "zh:313be32be4665f0d170b4065d57e530486b575081be1e27d793c6c9ac6bb1d42",
+    "zh:360ace6cffba80029a14a3b155a9ffe6c55419236e6b933c011edee1c2e5fc60",
+    "zh:3bc6e7617ba7ed1db1a3c89242714a1a4484ead154784a8fa62633124e8ebfaa",
+    "zh:3cc33cedb2bafff05ddf293525e1251ea82480e8298b3bfe51a75fc0ab2e53a7",
+    "zh:61fba29acaed2382f58af39c920207f8d2e62f1be79caa5ef9fa5b60bd90c740",
+    "zh:97d1495869da236220168c818496a4b49576fab29ff7a031e41baafc82e767b6",
+    "zh:9ef6047197682930c8144b1faeeeb42247bf1b07048a6ac37ff18e7965df40fd",
+    "zh:b30d58f33159028ab9e1d62353df9443efacd920497636c573d20beb3ad6aae0",
+    "zh:bf931b6de0ceae50a82183ca23a314f646068495514f27fb78a9ca66b2275ad3",
+    "zh:e071099e8ae796a1a57ac55b3340ede4b497c2666b12a84809c3df0c7a851a42",
+    "zh:e35790628fd80ff201292765e28db9cacc0db194df884d37bc5bac52ed86113c",
+    "zh:f26e0763dbe6a6b2195c94b44696f2110f7f55433dc142839be16b9697fa5597",
+    "zh:f2ae152820737ca4435c0a96c74dd84fea2e0fa90a53c52658d1d3c5598af2aa",
+  ]
+}
+
+provider "registry.terraform.io/browningluke/opnsense" {
+  version     = "0.11.0"
+  constraints = "~> 0.11.0"
+  hashes = [
+    "h1:cpve0N6SM4GNceOGdN5nhXVFZBpPZsyCb8IOkS8Qsmk=",
+    "zh:24dfb6cb8d699705dcf08b7e073e72a0b980a8ac9f55331e025db96ca9ae53f7",
+    "zh:2544dbf1a274824940288e2e515fb5edb22250947a0f7354c971faaf32ee0003",
+    "zh:2d78fa29aaebf2aaa68517507af9ae470a794dbc5705e8f7af7d2bf898396ff4",
+    "zh:32f8d5200ca85785609d9ab40e65aba12beff237bf97feb18fc41f71e36dc69c",
+    "zh:4a2c25ca45d40049456cc6404544f526dc310e26e717905ab9aa429cd9edd8e1",
+    "zh:4ce9bb7072569a8387cafc6f6e7a962e07c07cd144b72c3677fb95fa4eb3bd27",
+    "zh:5974c92811f847819094fc2b0fb75e63fe9c403f1475732c9e882c29a325c917",
+    "zh:615b9b2d20bfc7c41f1bc1888f0bdca4dd2144119403b0d2c324ae7da0808c67",
+    "zh:6f10c2773675e19c88702ccfa16b894eabed0444a65c1d5d00cddbfaa32be8a3",
+    "zh:8a28c10fba040d0045d785585ed0cbe0cfc3337e276a546b3065aa991ac4436d",
+    "zh:8c3f50205bdb5de1a82e6c1ddad1a7d723b5e2bfd9ee88919d0f103ef66f8c8a",
+    "zh:8eea601eea076888c9deda93db9552e10ff9736ac38308dc31c10f5abb395061",
+    "zh:a5b4a90685a3c6468fc899d723040c81d511b18cb5092b66ffb55c4f61925788",
+    "zh:bf107697092037a056382e81cb243c402ed2e6d9e1a991e787c250df4b656bd2",
+    "zh:f328b11348cee7f65481e6fea4eeeeeded61263b5adfd9e5e2e86c9294183d4d",
+  ]
+}
+
+provider "registry.terraform.io/siderolabs/talos" {
+  version     = "0.7.1"
+  constraints = "~> 0.7.0"
+  hashes = [
+    "h1:pcWUCD0ZmbIwkyMStX6vBi/IO02ueGB7ytVWRHqtobM=",
+    "zh:0fa82a384b25a58b65523e0ea4768fa1212b1f5cfc0c9379d31162454fedcc9d",
+    "zh:162436bf80a53c4bb0e3cd592699129264092c47e2abf01e05cbccfb66ac86de",
+    "zh:435b0b7e1dddb51fa40acce72f52ca7d4602ad1995912c51028542a5609bb511",
+    "zh:4566884b49adbb94e7b234b572215266eb6807ec668cd49fbe0840b138046bd2",
+    "zh:4abf5e1ab2a25740f4ff4e3ecfa57d3fe5c31ed15b4b1d0365227d1f1d32aa40",
+    "zh:59884c612645ecd74c25abc83ea87d34a32f737fd261ae291f6ef83c22254bd1",
+    "zh:6d3d44db2e87f5b55c321f4b2434d1280df98ce80127ef534a14b28c5e20c54a",
+    "zh:73aea54a4283828016463fd8324f8f8fcb0b65e637a80839c719cb3805801062",
+    "zh:7f6bcdf202e573a7fd3ff28bce0d02c0d1286db9e23985c3ef476b2580bf5339",
+    "zh:8a5fcfe56265be6d996b112dee7d909ae54cf39e8f50b701bc649a37fe546f6b",
+    "zh:985113de5713922aab4a1a85edf563669b41c916fdd4c90a7c52f6b3abedb761",
+    "zh:9c101adc33fc05042029cb113feb7be811938deefe9dd3db58709f8715084a5e",
+    "zh:bdeb34b2d6b6704a2dd8d04321887502f71aeb6c5673ff30f6e8c039b5797630",
+    "zh:ce674170f89481e44e20e3f442595104f809cecca666a9703515b28dbcbfc099",
+    "zh:f8efb1b8abd656c4a4043bed64c09b8b31698319ce49a187a79bdbb7aef051f3",
+  ]
+}

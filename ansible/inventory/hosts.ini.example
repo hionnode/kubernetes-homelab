@@ -1,0 +1,14 @@
+[opnsense]
+# Replace with your actual OPNsense IP (e.g. 192.168.1.50)
+192.168.1.1 
+
+[opnsense:vars]
+ansible_connection=local
+ansible_python_interpreter=/usr/bin/python3
+
+# Initial Credits - REPLACE THESE
+# Best practice: Use ansible-vault for these
+opnsense_api_key=YOUR_API_KEY
+opnsense_api_secret=YOUR_API_SECRET
+opnsense_url=https://192.168.1.1
+opnsense_ssl_verify=false
