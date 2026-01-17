@@ -10,6 +10,7 @@ A comprehensive guide to deploying and configuring ArgoCD for GitOps-based conti
 ## Table of Contents
 
 - [Overview](#overview)
+- [Homelab Architecture Integration](#homelab-architecture-integration)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Initial Configuration](#initial-configuration)
@@ -43,6 +44,118 @@ ArgoCD is a declarative, GitOps continuous delivery tool for Kubernetes. It foll
 | **SSO Integration** | OIDC, LDAP, SAML, GitHub, GitLab, etc. |
 | **RBAC** | Fine-grained access control |
 | **Web UI & CLI** | User-friendly interface and CLI tools |
+
+---
+
+## Homelab Architecture Integration
+
+This section covers deploying ArgoCD specifically for our Talos Kubernetes homelab cluster.
+
+### Our Infrastructure
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                     HOMELAB ARCHITECTURE                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   OPNsense Gateway (10.0.0.1)                                   │
+│         │                                                        │
+│         ▼                                                        │
+│   TP-Link Managed Switch                                        │
+│         │                                                        │
+│   ┌─────┴─────────────────────────────────────────────────┐     │
+│   │                                                        │     │
+│   │   TALOS KUBERNETES CLUSTER                             │     │
+│   │                                                        │     │
+│   │   Control Planes:           Workers:                   │     │
+│   │   ├── talos-cp-1 (10.0.0.10) VM    ├── talos-worker-1  │     │
+│   │   ├── talos-cp-2 (10.0.0.11)       ├── talos-worker-2  │     │
+│   │   └── talos-cp-3 (10.0.0.12)       └── talos-worker-3  │     │
+│   │                                                        │     │
+│   │   API VIP: 10.0.0.5:6443                               │     │
+│   │   MetalLB Pool: 10.0.0.50-99                           │     │
+│   │                                                        │     │
+│   │   ┌────────────────────────────────────────┐           │     │
+│   │   │           ARGOCD (GitOps)              │           │     │
+│   │   │   Deployed on: Worker nodes            │           │     │
+│   │   │   LoadBalancer IP: 10.0.0.50 (example) │           │     │
+│   │   └────────────────────────────────────────┘           │     │
+│   └────────────────────────────────────────────────────────┘     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why ArgoCD for This Homelab?
+
+| Challenge | ArgoCD Solution |
+|-----------|----------------|
+| Managing Talos + apps declaratively | Git-based configs synced automatically |
+| No SSH access to Talos nodes | Deploy everything via Kubernetes manifests |
+| Reproducible cluster state | Entire cluster defined in Git |
+| Easy rollbacks | Git revert = instant rollback |
+| Multi-component coordination | App of Apps manages all services |
+
+### Recommended Namespace Structure
+
+```text
+argocd/              # ArgoCD itself
+infrastructure/      # Cluster components (Cilium, MetalLB, cert-manager)
+monitoring/          # Prometheus, Grafana, Loki
+apps/                # Your applications
+```
+
+### Homelab-Specific Configuration
+
+```yaml
+# homelab-argocd-values.yaml
+server:
+  service:
+    type: LoadBalancer   # Gets IP from MetalLB pool (10.0.0.50-99)
+    annotations:
+      metallb.universe.tf/loadBalancerIPs: "10.0.0.50"  # Fixed IP
+
+  ingress:
+    enabled: false  # Use LoadBalancer directly in homelab
+
+configs:
+  params:
+    server.insecure: true  # Terminate TLS at ingress/LB if needed
+
+# Resource limits for homelab (adjust based on available resources)
+controller:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+repoServer:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+```
+
+### Accessing ArgoCD in Homelab
+
+From any device on the `10.0.0.0/24` network:
+
+```bash
+# After installation with LoadBalancer
+kubectl get svc argocd-server -n argocd
+# EXTERNAL-IP will be from MetalLB pool (e.g., 10.0.0.50)
+
+# Access UI
+open https://10.0.0.50
+
+# Or from outside homelab network via OPNsense port forward
+# Configure in OPNsense: Firewall → NAT → Port Forward
+```
 
 ---
 

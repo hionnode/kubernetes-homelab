@@ -11,6 +11,7 @@ A comprehensive guide to understanding and implementing GitOps principles for Ku
 
 - [What is GitOps?](#what-is-gitops)
 - [Core Principles](#core-principles)
+- [GitOps for Our Homelab](#gitops-for-our-homelab)
 - [GitOps vs Traditional CI/CD](#gitops-vs-traditional-cicd)
 - [GitOps Architecture](#gitops-architecture)
 - [Repository Strategies](#repository-strategies)
@@ -113,6 +114,161 @@ A GitOps operator continuously compares actual state with desired state and corr
                     Continuous
                   Reconciliation
 ```
+
+---
+
+## GitOps for Our Homelab
+
+This section covers implementing GitOps specifically for our Talos Kubernetes homelab with Proxmox and OPNsense.
+
+### Our GitOps-Managed Stack
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                HOMELAB GITOPS STACK                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  INFRASTRUCTURE LAYER (Terraform + Ansible)                     │
+│  ├── Proxmox VMs (OPNsense, Talos CP-1)                         │
+│  ├── OPNsense Configuration (DHCP, Firewall, NAT)               │
+│  └── Talos Machine Configs                                     │
+│                                                                  │
+│  KUBERNETES LAYER (ArgoCD GitOps)                               │
+│  ├── Cilium CNI                                                 │
+│  ├── MetalLB (10.0.0.50-99)                                     │
+│  ├── cert-manager                                               │
+│  ├── Monitoring (Prometheus, Grafana, Loki)                     │
+│  └── Applications                                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Recommended Repository Structure for Homelab
+
+```text
+kubernetes-homelab/
+├── terraform/                  # Infrastructure as Code
+│   ├── vm_opnsense.tf         # OPNsense VM definition
+│   ├── cluster_talos.tf       # Talos VM definitions
+│   └── variables.tf
+│
+├── ansible/                    # Configuration Management
+│   └── opnsense/              # OPNsense automation
+│
+├── kubernetes/                 # GitOps-managed K8s resources
+│   ├── argocd/                # ArgoCD configuration
+│   │   ├── install.yaml       # ArgoCD installation manifest
+│   │   └── app-of-apps.yaml   # Root application
+│   │
+│   ├── infrastructure/        # Cluster components
+│   │   ├── cilium/
+│   │   ├── metallb/
+│   │   │   ├── namespace.yaml
+│   │   │   ├── ipaddresspool.yaml  # 10.0.0.50-99
+│   │   │   └── l2advertisement.yaml
+│   │   └── cert-manager/
+│   │
+│   ├── monitoring/            # Observability stack
+│   │   ├── prometheus/
+│   │   ├── grafana/
+│   │   └── loki/
+│   │
+│   └── apps/                  # Your applications
+│       ├── homepage/
+│       ├── nextcloud/
+│       └── media-server/
+│
+├── docs/                       # Documentation
+│   ├── argocd-setup-guide.md
+│   ├── gitops-guide.md
+│   └── talos-setup-guide.md
+│
+└── scripts/                    # Utility scripts
+```
+
+### Homelab App of Apps Example
+
+```yaml
+# kubernetes/argocd/app-of-apps.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homelab-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/kubernetes-homelab.git
+    targetRevision: main
+    path: kubernetes/argocd/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+### Infrastructure Applications
+
+```yaml
+# kubernetes/argocd/applications/metallb.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metallb
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/kubernetes-homelab.git
+    targetRevision: main
+    path: kubernetes/infrastructure/metallb
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: metallb-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+```
+
+### Why GitOps Works Well for Homelab
+
+| Homelab Challenge | GitOps Solution |
+|-------------------|----------------|
+| Talos has no SSH | Everything deployed via K8s manifests |
+| Disaster recovery | Clone repo + `kubectl apply` = cluster restored |
+| Experimenting safely | Feature branches for testing |
+| Keeping track of changes | Git history shows all modifications |
+| Sharing configs | Public/private repo for community |
+
+### Homelab GitOps Workflow
+
+```text
+1. Edit manifests locally (VSCode, etc.)
+         │
+         ▼
+2. Commit and push to GitHub
+         │
+         ▼
+3. ArgoCD detects changes (polling or webhook)
+         │
+         ▼
+4. ArgoCD syncs to Talos cluster (10.0.0.5:6443)
+         │
+         ▼
+5. Workloads deployed to worker nodes (10.0.0.20-22)
+         │
+         ▼
+6. Services get MetalLB IPs (10.0.0.50-99)
+```
+
+> [!TIP]
+> For initial cluster bootstrap before ArgoCD is installed, use `kubectl apply -f kubernetes/infrastructure/` directly.
 
 ---
 
