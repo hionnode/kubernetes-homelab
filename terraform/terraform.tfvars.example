@@ -14,3 +14,17 @@ network_bridge   = "vmbr0"
 opnsense_uri        = "https://192.168.1.1"
 opnsense_api_key    = "your_api_key_here"
 opnsense_api_secret = "your_api_secret_here"
+
+# Talos Cluster Configuration
+talos_version      = "v1.9.0"
+kubernetes_version = "1.31.0"
+talos_cluster_name = "homelab-cluster"
+talos_cluster_vip  = "10.0.0.5"
+
+# Talos Control Plane 1 (VM)
+talos_cp1_vm_id    = 200
+talos_cp1_name     = "talos-cp-1"
+talos_cp1_ip       = "10.0.0.10"
+talos_cp_memory    = 4096
+talos_cp_cores     = 2
+talos_cp_disk_size = 32

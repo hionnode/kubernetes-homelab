@@ -3,10 +3,10 @@
 
 # Define VLAN 10 for Kubernetes Cluster
 resource "opnsense_interfaces_vlan" "kube_vlan" {
-  device   = "vlan0.10"
-  tag      = 10
-  priority = 0 # corrected from 'prio'
-  parent   = "vtnet1" 
+  device      = "vlan0.10"
+  tag         = 10
+  priority    = 0 # corrected from 'prio'
+  parent      = "vtnet1"
   description = "Kubernetes Cluster VLAN"
 }
 
