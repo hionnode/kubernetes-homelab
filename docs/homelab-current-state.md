@@ -195,7 +195,22 @@ Interfaces → Assignments → add vtnet1_vlan10 → assign as OPT1
   Save → Apply changes
 ```
 
-> **Note:** If vtnet1 (existing LAN) was already configured as 10.0.0.1/24 without a VLAN tag, you can either keep that interface for the untagged native VLAN or reconfigure it to use the VLAN 10 subinterface. In a single-VLAN setup the simplest path is to reconfigure the existing LAN interface to use vtnet1_vlan10.
+> **WARNING — Do NOT reassign the existing LAN interface to vtnet1_vlan10 in a single step.**
+>
+> If you change `Interfaces → Assignments → LAN` to use `vtnet1_vlan10` before the Proxmox bridge is
+> VLAN-aware, you will be **immediately locked out**: the bridge passes frames untagged, OPNsense's
+> VLAN subinterface drops all of them, LAN goes dark, and the anti-lockout rule stops working.
+> WAN-side WebGUI access is also blocked by default — you will be unreachable from both sides.
+>
+> **For single-VLAN setups:** The simpler and safer approach is Option A — leave `LAN = vtnet1`
+> (untagged) and configure VLAN 10 as a switch-internal concept only. No Proxmox changes needed.
+>
+> **For multi-VLAN setups (Option B / trunk mode):** You must enable VLAN-aware on vmbr1 (Step 1)
+> *first*, then create the VLAN subinterface as a new OPT interface, verify it works, and only then
+> transition away from the original LAN assignment. Never cut over LAN and the bridge in the same step.
+>
+> If you are already locked out, see **`docs/opnsense-vlan-setup.md`** for console-based recovery
+> via the Proxmox noVNC console and the correct setup procedure for both approaches.
 
 #### Step 4 — OPNsense: Enable DHCP on VLAN 10
 
