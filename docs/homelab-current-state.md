@@ -248,12 +248,12 @@ L2 FEATURES → 802.1Q VLAN → Port Config:
 #### Step 6 — SG2008: Set management VLAN and static IP
 
 ```
-SYSTEM → System IP:
-  Management VLAN:  10
+L3 Features → Interface:
+  Click "Edit IPv4" on the VLAN 10 row
+  IP Address Mode:  Static
   IP Address:       10.0.0.2
   Subnet Mask:      255.255.255.0
-  Gateway:          10.0.0.1
-  Save
+  Click Apply, then Save
 ```
 
 After saving, the switch will drop the 192.168.0.x management address. Reconnect at `http://10.0.0.2` from any device on the 10.0.0.0/24 network.
