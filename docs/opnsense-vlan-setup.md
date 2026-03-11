@@ -16,7 +16,9 @@
 7. [Option B: VLAN Trunk (Multi-VLAN Ready)](#7-option-b-vlan-trunk-multi-vlan-ready)
 8. [OPNsense 25.7 Specific Notes](#8-opnsense-257-specific-notes)
 9. [Verification Checklist](#9-verification-checklist)
-10. [References](#10-references)
+10. [Troubleshooting](#10-troubleshooting)
+11. [Networking Prerequisites & Tools](#11-networking-prerequisites--tools)
+12. [References](#12-references)
 
 ---
 
@@ -654,13 +656,15 @@ This makes every port an untagged access port in VLAN 10. Frames flow between OP
 ### Step A6 — SG2008: Set management VLAN and IP
 
 ```
-SYSTEM → System IP
-  Management VLAN: 10
+L3 Features → Interface
+  Click "Edit IPv4" on the VLAN 10 row (create VLAN 10 interface first if it doesn't exist)
+  IP Address Mode: Static
   IP Address: 10.0.0.2
   Subnet Mask: 255.255.255.0
-  Gateway: 10.0.0.1
-  Save
+  Click Apply, then Save
 ```
+
+> **Note:** The TL-SG2008 V3 / newer firmware uses L3 Features → Interface instead of SYSTEM → System IP. There is no explicit gateway field — the management VLAN is implicitly whichever VLAN interface has an IP assigned. See [TP-Link FAQ 2122](https://www.tp-link.com/us/support/faq/2122/) for details.
 
 The switch drops its 192.168.0.x address. After saving, reconnect at `http://10.0.0.2` from a device on the 10.0.0.0/24 network (or via OPNsense WebGUI proxy if needed).
 
@@ -832,7 +836,7 @@ Only after Step B6 is confirmed:
 
 5. Set SG2008 management VLAN and IP:
    ```
-   SYSTEM → System IP → Management VLAN: 10, IP: 10.0.0.2, Gateway: 10.0.0.1 → Save
+   L3 Features → Interface → Edit IPv4 on VLAN 10 → Static, IP: 10.0.0.2, Mask: 255.255.255.0 → Apply → Save
    ```
 
 ### Step B8 — OPNsense: Add static DHCP lease for switch
@@ -919,7 +923,229 @@ Firewall → Rules → [LAN10] → Add
 
 ---
 
-## 10. References
+## 10. Troubleshooting
+
+### 10.1 Can't Reach the Switch at Default IP (192.168.0.1)
+
+If you're at step A4 or B5 and can't access the SG2008 web UI at `http://192.168.0.1`, work through these causes in order:
+
+**Subnet mismatch — most common cause**
+
+Your computer is on a different subnet (e.g., 10.0.0.x or 192.168.1.x) and can't reach 192.168.0.1 without a router. You need to temporarily set a static IP in the 192.168.0.x range:
+
+- **macOS:**
+  ```bash
+  # Set static IP on Ethernet interface
+  networksetup -setmanual "Ethernet" 192.168.0.100 255.255.255.0 192.168.0.1
+
+  # When done, revert to DHCP
+  networksetup -setdhcp "Ethernet"
+  ```
+  > Tip: Run `networksetup -listallnetworkservices` to find the exact interface name. It may be "USB 10/100/1000 LAN" or similar for USB-C adapters.
+
+- **Linux:**
+  ```bash
+  # Find your ethernet interface name
+  ip link show
+
+  # Add a static IP (replace eth0 with your interface)
+  sudo ip addr add 192.168.0.100/24 dev eth0
+
+  # When done, remove it
+  sudo ip addr del 192.168.0.100/24 dev eth0
+  ```
+
+- **Windows:**
+  ```
+  Settings → Network & Internet → Ethernet → Edit IP settings
+  Set to Manual → IPv4 On
+  IP: 192.168.0.100, Subnet: 255.255.255.0, Gateway: 192.168.0.1
+  ```
+
+**Wrong port**
+
+Connect your cable to port 1 on the switch, not port 8. Some managed switches reserve the last port for uplinks and may behave differently with default settings.
+
+**Switch IP was already changed**
+
+If someone (or a previous configuration attempt) already changed the switch's management IP, 192.168.0.1 won't respond. Try scanning the subnet your switch might be on:
+
+```bash
+# Scan the default subnet
+nmap -sn 192.168.0.0/24
+
+# Also try the homelab subnet if the switch was partially configured
+nmap -sn 10.0.0.0/24
+```
+
+**Cable goes through Proxmox instead of direct connection**
+
+The switch must be connected directly to your laptop/PC with an Ethernet cable for initial setup. If the cable goes laptop → Proxmox NIC → vmbr1 → switch, your traffic passes through the Proxmox bridge and OPNsense routing, which won't route to 192.168.0.x. Use a direct cable.
+
+**Factory reset**
+
+If nothing else works, factory reset the switch:
+
+1. With the switch powered on, press and hold the **Reset** button (small pinhole on the back) for **5–10 seconds**
+2. All port LEDs will flash briefly — release the button
+3. Wait 30 seconds for the switch to reboot
+4. Try `http://192.168.0.1` again (default credentials: admin / admin)
+
+**Diagnostic checklist**
+
+```bash
+# 1. Check your own IP — are you on 192.168.0.x?
+ip addr show          # Linux/macOS
+ipconfig              # Windows
+
+# 2. Check if the switch responds at L2 (even if IP is wrong)
+arp -a | grep -i "192.168.0"
+
+# 3. Verify the physical link is up
+ip link show          # Look for "state UP" on your ethernet interface
+
+# 4. Check the link light on the switch port — is it lit?
+```
+
+### 10.2 Lost Access to Switch After Changing Management VLAN/IP
+
+After step A6 or B7 (changing the switch management VLAN to 10 and IP to 10.0.0.2), the switch is no longer reachable at 192.168.0.1. This is expected, but there's a dead zone between saving the new config and being able to reach the switch on the new IP.
+
+**To reconnect:**
+
+1. Ensure your device is on the 10.0.0.0/24 subnet (either via DHCP from OPNsense, or a static IP like 10.0.0.100)
+2. Try `http://10.0.0.2` — the switch should respond on its new IP
+3. If it doesn't respond, check that OPNsense is routing on the LAN interface and DHCP is active
+
+**If you're completely stuck:**
+
+Factory reset the switch (see 10.1) and start the switch configuration steps over. The OPNsense side doesn't need to change — only the switch config is lost on reset.
+
+### 10.3 OPNsense WebGUI Unreachable After VLAN Change
+
+If you changed the LAN interface to `vtnet1_vlan10` and lost WebGUI access, this is the lockout scenario described in [Section 4](#4-why-the-lockout-happens).
+
+**Quick checklist:**
+
+1. **Is vmbr1 VLAN-aware?** If not, tags are stripped and vtnet1_vlan10 receives nothing. See [Section 5](#5-recovery-restore-opnsense-access-via-proxmox-console) for recovery.
+2. **Is LAN still assigned to vtnet1?** Check via Proxmox console → OPNsense console menu → Option 1.
+3. **Can you reach Proxmox?** Go to `https://192.168.1.110:8006` and use the VM console to fix OPNsense.
+
+### 10.4 Devices on Switch Can't Get DHCP
+
+If devices connected to the SG2008 aren't getting IP addresses:
+
+**Check OPNsense DHCP is enabled on the correct interface**
+
+```
+Services → DHCPv4 → [LAN] (or [LAN10] for Option B)
+```
+
+Verify "Enable" is checked and the range is set (e.g., 10.0.0.100–10.0.0.200).
+
+**Check firewall rules on OPT interfaces**
+
+New OPT interfaces (like LAN10 in Option B) have **no firewall rules by default** — all traffic is blocked, including DHCP. Add a pass rule:
+
+```
+Firewall → Rules → [LAN10] → Add
+  Action: Pass
+  Protocol: Any
+  Source: LAN10 net
+  Destination: Any
+  Save → Apply Changes
+```
+
+**Check switch port PVID**
+
+Every device port must have its PVID set to the VLAN where DHCP is served. If ports 1–7 have PVID=1 (default) but DHCP is on VLAN 10, devices will land in VLAN 1 and never see DHCP responses.
+
+```
+L2 FEATURES → 802.1Q VLAN → Port Config
+  Ports 1–7: PVID = 10
+```
+
+---
+
+## 11. Networking Prerequisites & Tools
+
+This section covers the foundational networking concepts and tools you'll need to work through this guide. If you're new to VLANs and network configuration, start here.
+
+### 11.1 Essential Concepts to Understand First
+
+**IP Addressing & Subnetting**
+
+Every device on a network needs an IP address. The `/24` in `10.0.0.0/24` means the first 24 bits are the network address — so all IPs from 10.0.0.1 to 10.0.0.254 are on the same subnet. Devices on 192.168.0.x **cannot talk to** devices on 10.0.0.x without a router in between. This is why you can't reach a switch at 192.168.0.1 when your laptop is on 10.0.0.x.
+
+**MAC Addresses**
+
+A MAC address (e.g., `BC:24:11:FC:76:0A`) is a hardware identifier burned into every network interface. Switches use MAC addresses to forward frames at Layer 2 — they learn which MAC is on which port and only send frames where they need to go. MAC addresses are relevant when setting up static DHCP leases (you're telling OPNsense "always give this MAC this IP").
+
+**ARP (Address Resolution Protocol)**
+
+ARP is how devices discover the MAC address behind an IP address. When your laptop wants to reach 10.0.0.1, it broadcasts "who has 10.0.0.1?" and OPNsense replies with its MAC. The `arp -a` command shows your device's ARP cache — a table of IP-to-MAC mappings it has learned. This is useful for debugging: if the switch doesn't appear in `arp -a`, your device has never successfully communicated with it at Layer 2.
+
+**DHCP (Dynamic Host Configuration Protocol)**
+
+DHCP automatically assigns IP addresses to devices. OPNsense runs the DHCP server and hands out IPs from a configured range (e.g., 10.0.0.100–200). The lifecycle: device connects → sends DHCP Discover broadcast → OPNsense responds with an IP offer → device accepts. Leases expire and get renewed. Static mappings let you pin a specific IP to a specific MAC address.
+
+**Default Gateway**
+
+The default gateway is the IP a device sends traffic to when the destination is outside its own subnet. For devices on 10.0.0.0/24, the gateway is 10.0.0.1 (OPNsense). Without a gateway, devices can only talk to others on the same subnet.
+
+**DNS (Domain Name System)**
+
+DNS translates names like `example.com` into IP addresses. When testing connectivity, use `ping` with an IP address first (e.g., `ping 8.8.8.8`) to rule out DNS issues. If IP pings work but name resolution doesn't, the problem is DNS, not routing.
+
+### 11.2 Debugging Tools Reference
+
+| Tool | What it does | Example | When to use |
+|------|-------------|---------|-------------|
+| `ping` | Tests basic IP reachability | `ping 10.0.0.1` | First thing to try — does the device respond? |
+| `arp -a` | Shows known MAC-to-IP mappings | `arp -a \| grep 192.168.0` | Check if the switch is visible at Layer 2, even if ping fails |
+| `ip addr` / `ifconfig` | Shows your own IP addresses and interface state | `ip addr show` | Verify you're on the right subnet |
+| `ip link show` | Shows interface link state (up/down) | `ip link show eth0` | Check if the physical link is up |
+| `nmap -sn` | Discovers live devices on a subnet | `nmap -sn 192.168.0.0/24` | Find a device when you don't know its IP |
+| `tcpdump` | Captures packets on an interface | `tcpdump -i eth0 -n arp` | See what's actually happening on the wire |
+| `curl` | Tests HTTP access | `curl -k https://10.0.0.1` | Verify web UI is responding |
+| `traceroute` | Shows the path packets take | `traceroute 10.0.0.1` | Diagnose where packets are getting dropped |
+
+**macOS-specific: Setting a static IP**
+
+```bash
+# List network services to find the right interface name
+networksetup -listallnetworkservices
+
+# Set static IP for initial switch access
+networksetup -setmanual "Ethernet" 192.168.0.100 255.255.255.0 192.168.0.1
+
+# Revert to DHCP when done
+networksetup -setdhcp "Ethernet"
+```
+
+### 11.3 Recommended Learning Resources
+
+**Networking Fundamentals**
+
+- [Practical Networking](https://www.practicalnetworking.net/) — clear explanations of subnetting, VLANs, and the OSI model (blog + YouTube)
+- [NetworkChuck](https://www.youtube.com/@NetworkChuck) — beginner-friendly VLAN and subnetting video walkthroughs
+- [Jeremy's IT Lab](https://www.youtube.com/@JesijsITlab) — free CCNA-level networking course on YouTube
+- [Julia Evans' networking zines](https://wizardzines.com/) — visual, bite-sized explanations of networking concepts
+
+**Tools**
+
+- [ipcalc](https://jodies.de/ipcalc) — online subnet calculator (helps visualize what /24 means)
+- [nmap](https://nmap.org/) — network scanner for device discovery
+
+**Product Documentation**
+
+- [OPNsense — VLANs](https://docs.opnsense.org/manual/how-tos/vlan_and_lagg.html) — official VLAN setup guide
+- [OPNsense — Firewall Rules](https://docs.opnsense.org/manual/firewall.html) — understanding pass/block rules
+- [TP-Link Omada Knowledge Base](https://www.tp-link.com/us/support/faq/2149/) — 802.1Q VLAN setup on managed switches
+
+---
+
+## 12. References
 
 ### This Homelab
 
