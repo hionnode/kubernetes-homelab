@@ -111,7 +111,7 @@ echo ""
 log_info "── Step 2: Create Proxmox snapshot ──"
 
 # Check for existing same-day snapshot
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086,SC2029
 EXISTING=$(ssh $SSH_OPTS "root@$PROXMOX_HOST" "qm listsnapshot $OPNSENSE_VMID" 2>/dev/null || true)
 if echo "$EXISTING" | grep -q "$SNAPSHOT_NAME"; then
     log_warn "Snapshot '$SNAPSHOT_NAME' already exists for today"
@@ -119,7 +119,7 @@ if echo "$EXISTING" | grep -q "$SNAPSHOT_NAME"; then
     echo "  ssh root@$PROXMOX_HOST \"qm delsnapshot $OPNSENSE_VMID --snapname $SNAPSHOT_NAME\""
 else
     log_info "Creating snapshot '$SNAPSHOT_NAME' for VM $OPNSENSE_VMID..."
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2029
     if ssh $SSH_OPTS "root@$PROXMOX_HOST" "qm snapshot $OPNSENSE_VMID --snapname $SNAPSHOT_NAME --description 'Before OPNsense update $(date +%Y-%m-%d)'"; then
         log_pass "Snapshot '$SNAPSHOT_NAME' created"
     else
@@ -148,7 +148,7 @@ record_state() {
     local label="$1"
     local cmd="$2"
     echo "--- $label ---" >> "$STATE_FILE"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2029
     (set +e; ssh $SSH_OPTS "root@$OPNSENSE_LAN" "$cmd" >> "$STATE_FILE" 2>&1; true)
     echo "" >> "$STATE_FILE"
 }

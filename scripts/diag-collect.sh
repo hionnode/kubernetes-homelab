@@ -74,18 +74,22 @@ OUTPUT_FILE="$OUTPUT_DIR/diag-$TIMESTAMP.txt"
 
 # Helper to run a command and capture output with header
 section() {
-    echo "" >> "$OUTPUT_FILE"
-    echo "======================================================================" >> "$OUTPUT_FILE"
-    echo "  $1" >> "$OUTPUT_FILE"
-    echo "======================================================================" >> "$OUTPUT_FILE"
-    echo "" >> "$OUTPUT_FILE"
+    {
+        echo ""
+        echo "======================================================================"
+        echo "  $1"
+        echo "======================================================================"
+        echo ""
+    } >> "$OUTPUT_FILE"
 }
 
 run_local() {
     local label="$1"
     local cmd="$2"
-    echo "--- $label ---" >> "$OUTPUT_FILE"
-    echo "\$ $cmd" >> "$OUTPUT_FILE"
+    {
+        echo "--- $label ---"
+        echo "\$ $cmd"
+    } >> "$OUTPUT_FILE"
     # Use set +e so command failures become diagnostic data
     (set +e; eval "$cmd" >> "$OUTPUT_FILE" 2>&1; true)
     echo "" >> "$OUTPUT_FILE"
@@ -95,9 +99,11 @@ run_ssh() {
     local host="$1"
     local label="$2"
     local cmd="$3"
-    echo "--- $label ---" >> "$OUTPUT_FILE"
-    echo "\$ ssh root@$host \"$cmd\"" >> "$OUTPUT_FILE"
-    # shellcheck disable=SC2086
+    {
+        echo "--- $label ---"
+        echo "\$ ssh root@$host \"$cmd\""
+    } >> "$OUTPUT_FILE"
+    # shellcheck disable=SC2086,SC2029
     (set +e; ssh $SSH_OPTS "root@$host" "$cmd" >> "$OUTPUT_FILE" 2>&1; true)
     echo "" >> "$OUTPUT_FILE"
 }
@@ -159,9 +165,11 @@ if ssh $SSH_OPTS "root@$PROXMOX_HOST" "echo ok" >/dev/null 2>&1; then
     run_ssh "$PROXMOX_HOST" "VM events (last hour)" "journalctl -u pve-guests --since '1 hour ago' --no-pager 2>/dev/null || echo 'journalctl not available'"
 else
     log_warn "  SSH to Proxmox failed — recording failure"
-    echo "SSH to root@$PROXMOX_HOST FAILED" >> "$OUTPUT_FILE"
-    echo "Ensure SSH key-based access is configured." >> "$OUTPUT_FILE"
-    echo "" >> "$OUTPUT_FILE"
+    {
+        echo "SSH to root@$PROXMOX_HOST FAILED"
+        echo "Ensure SSH key-based access is configured."
+        echo ""
+    } >> "$OUTPUT_FILE"
 fi
 
 # ── Section 3: OPNsense ────────────────────────────────────────────────────────
@@ -190,9 +198,11 @@ if ssh $SSH_OPTS "root@$OPNSENSE_LAN" "echo ok" >/dev/null 2>&1; then
     run_ssh "$OPNSENSE_LAN" "Kernel messages (last 50)" "dmesg | tail -50"
 else
     log_warn "  SSH to OPNsense failed — recording failure"
-    echo "SSH to root@$OPNSENSE_LAN FAILED" >> "$OUTPUT_FILE"
-    echo "Ensure SSH is enabled (OPNsense console option 14) and key-based access is configured." >> "$OUTPUT_FILE"
-    echo "" >> "$OUTPUT_FILE"
+    {
+        echo "SSH to root@$OPNSENSE_LAN FAILED"
+        echo "Ensure SSH is enabled (OPNsense console option 14) and key-based access is configured."
+        echo ""
+    } >> "$OUTPUT_FILE"
 fi
 
 # ── Section 4: Connectivity Tests ───────────────────────────────────────────────
