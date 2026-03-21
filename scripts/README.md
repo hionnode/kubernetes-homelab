@@ -116,7 +116,42 @@ chmod +x /root/*.sh
 - OPNsense API credentials in environment variables (safer than files)
 - Never commit credentials to git
 
+## Diagnostic Scripts
+
+Independent troubleshooting tools for incident response. Each maps to a section in [`docs/opnsense-troubleshooting-guide.md`](../docs/opnsense-troubleshooting-guide.md).
+
+| Script | Purpose | Guide Section | Requires |
+|--------|---------|---------------|----------|
+| `diag-health-check.sh` | Five-layer connectivity triage | 3.1 | Workstation only |
+| `diag-dns-matrix.sh` | DNS diagnostic test matrix (6 tests) | 8.5 | Workstation + `dig` |
+| `diag-static-ip.sh` | Emergency static IP assign/revert | 4.2 | Workstation + sudo |
+| `diag-collect.sh` | Collect diagnostics from all hosts | 3.3 | SSH to Proxmox/OPNsense |
+| `diag-pre-update.sh` | Snapshot + state capture before updates | 13.4 | SSH to Proxmox/OPNsense |
+
+### Quick Usage
+
+```bash
+# Start here — quick triage of all network layers
+./scripts/diag-health-check.sh
+
+# DNS not working? Run the full test matrix
+./scripts/diag-dns-matrix.sh
+
+# DHCP down? Assign a static IP to reach OPNsense
+./scripts/diag-static-ip.sh
+./scripts/diag-static-ip.sh --cleanup    # restore DHCP after
+
+# Collect full diagnostic data for analysis
+./scripts/diag-collect.sh
+
+# Before an OPNsense firmware update
+./scripts/diag-pre-update.sh --backup-config
+```
+
+All scripts support `--help` for full usage details. Configuration is via environment variables (e.g., `PROXMOX_HOST`, `OPNSENSE_LAN`).
+
 ## See Also
 
 - `docs/hybrid_workflow.md` - When to use Bash vs Terraform
 - `docs/walkthrough.md` - Complete manual setup guide
+- `docs/opnsense-troubleshooting-guide.md` - Full troubleshooting reference
