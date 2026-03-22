@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Homelab Diagnostic: Pre-Update Safety Checks
-# Maps to: docs/opnsense-troubleshooting-guide.md Section 13.4
+# Maps to: docs/opnsense-guide.md Section 13.4
 # Runs from: Workstation (SSH access to Proxmox and OPNsense)
 
 # Color output
@@ -47,7 +47,7 @@ usage() {
     echo "  - SSH key-based access to root@$PROXMOX_HOST"
     echo "  - SSH key-based access to root@$OPNSENSE_LAN"
     echo ""
-    echo "See: docs/opnsense-troubleshooting-guide.md Section 13.4"
+    echo "See: docs/opnsense-guide.md Section 13.4"
 }
 
 BACKUP_CONFIG=false

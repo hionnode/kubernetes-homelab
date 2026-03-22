@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Homelab Diagnostic: Five-Layer Health Check
-# Maps to: docs/opnsense-troubleshooting-guide.md Section 3.1
+# Maps to: docs/opnsense-guide.md Section 3.1
 # Runs from: Workstation (no SSH required)
 
 # Color output
@@ -48,7 +48,7 @@ usage() {
     echo "  K8S_VIP        Kubernetes API VIP (default: 10.0.0.5)"
     echo "  DNS_UPSTREAM   Upstream DNS server (default: 1.1.1.1)"
     echo ""
-    echo "See: docs/opnsense-troubleshooting-guide.md Section 3.1"
+    echo "See: docs/opnsense-guide.md Section 3.1"
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -236,7 +236,7 @@ else
     echo "  scripts/diag-static-ip.sh     — Emergency static IP assignment"
     echo "  scripts/diag-collect.sh       — Collect full diagnostic data"
     echo ""
-    log_info "Reference: docs/opnsense-troubleshooting-guide.md"
+    log_info "Reference: docs/opnsense-guide.md"
 fi
 
 exit "$FAIL_COUNT"

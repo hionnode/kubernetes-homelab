@@ -118,7 +118,7 @@ chmod +x /root/*.sh
 
 ## Diagnostic Scripts
 
-Independent troubleshooting tools for incident response. Each maps to a section in [`docs/opnsense-troubleshooting-guide.md`](../docs/opnsense-troubleshooting-guide.md).
+Independent troubleshooting tools for incident response. Each maps to a section in [`docs/opnsense-guide.md`](../docs/opnsense-guide.md).
 
 | Script | Purpose | Guide Section | Requires |
 |--------|---------|---------------|----------|
@@ -127,6 +127,7 @@ Independent troubleshooting tools for incident response. Each maps to a section 
 | `diag-static-ip.sh` | Emergency static IP assign/revert | 4.2 | Workstation + sudo |
 | `diag-collect.sh` | Collect diagnostics from all hosts | 3.3 | SSH to Proxmox/OPNsense |
 | `diag-pre-update.sh` | Snapshot + state capture before updates | 13.4 | SSH to Proxmox/OPNsense |
+| `collect-opnsense-logs.sh` | Pull Kea/Unbound logs, configs, leases via SSH | 7.6, 8.6 | SSH to OPNsense |
 
 ### Quick Usage
 
@@ -146,6 +147,10 @@ Independent troubleshooting tools for incident response. Each maps to a section 
 
 # Before an OPNsense firmware update
 ./scripts/diag-pre-update.sh --backup-config
+
+# Pull all OPNsense logs for offline analysis
+./scripts/collect-opnsense-logs.sh                    # LAN (10.0.0.1)
+./scripts/collect-opnsense-logs.sh 192.168.1.50       # WAN IP if LAN is down
 ```
 
 All scripts support `--help` for full usage details. Configuration is via environment variables (e.g., `PROXMOX_HOST`, `OPNSENSE_LAN`).
@@ -154,4 +159,4 @@ All scripts support `--help` for full usage details. Configuration is via enviro
 
 - `docs/hybrid_workflow.md` - When to use Bash vs Terraform
 - `docs/walkthrough.md` - Complete manual setup guide
-- `docs/opnsense-troubleshooting-guide.md` - Full troubleshooting reference
+- `docs/opnsense-guide.md` - Full troubleshooting reference

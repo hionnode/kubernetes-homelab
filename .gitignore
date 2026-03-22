@@ -22,6 +22,9 @@ ansible/inventory/hosts.ini
 *secrets*
 *password*
 
+# Collected logs
+logs/
+
 # OS
 .DS_Store
 *.swp

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Homelab Diagnostic: DNS Test Matrix
-# Maps to: docs/opnsense-troubleshooting-guide.md Section 8.5
+# Maps to: docs/opnsense-guide.md Section 8.5
 # Runs from: Workstation (no SSH required)
 
 # Color output
@@ -43,7 +43,7 @@ usage() {
     echo "  LOCAL_HOSTNAME     Local hostname to test (default: talos-cp-1.homelab.local)"
     echo "  LOCAL_EXPECTED_IP  Expected IP for local hostname (default: 10.0.0.10)"
     echo ""
-    echo "See: docs/opnsense-troubleshooting-guide.md Section 8.5"
+    echo "See: docs/opnsense-guide.md Section 8.5"
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -231,7 +231,7 @@ else
     echo "    Test 5 fails, others pass → TCP/53 blocked (check firewall)"
     echo "    Test 6 shows reachable but no DNS → Unbound service issue (Section 8.1)"
     echo ""
-    log_info "Reference: docs/opnsense-troubleshooting-guide.md Section 8"
+    log_info "Reference: docs/opnsense-guide.md Section 8"
 fi
 
 exit "$FAIL_COUNT"

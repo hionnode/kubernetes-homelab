@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Homelab Diagnostic: Emergency Static IP Assignment
-# Maps to: docs/opnsense-troubleshooting-guide.md Section 4.2
+# Maps to: docs/opnsense-guide.md Section 4.2
 # Runs from: Workstation (requires sudo)
 
 # Color output
@@ -51,7 +51,7 @@ usage() {
     echo "  $(basename "$0") --interface en7         # Use specific interface"
     echo "  $(basename "$0") --cleanup               # Remove static IP, restore DHCP"
     echo ""
-    echo "See: docs/opnsense-troubleshooting-guide.md Section 4.2"
+    echo "See: docs/opnsense-guide.md Section 4.2"
 }
 
 # Parse arguments

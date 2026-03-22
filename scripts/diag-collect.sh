@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Homelab Diagnostic: Data Collector
-# Maps to: docs/opnsense-troubleshooting-guide.md Section 3.3
+# Maps to: docs/opnsense-guide.md Section 3.3
 # Runs from: Workstation (SSH access to Proxmox and OPNsense)
 
 # Color output
@@ -48,7 +48,7 @@ usage() {
     echo "  - SSH key-based access to root@$PROXMOX_HOST"
     echo "  - SSH key-based access to root@$OPNSENSE_LAN"
     echo ""
-    echo "See: docs/opnsense-troubleshooting-guide.md Section 3.3"
+    echo "See: docs/opnsense-guide.md Section 3.3"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -189,12 +189,12 @@ if ssh $SSH_OPTS "root@$OPNSENSE_LAN" "echo ok" >/dev/null 2>&1; then
     run_ssh "$OPNSENSE_LAN" "Firewall state summary" "pfctl -s info"
     run_ssh "$OPNSENSE_LAN" "NAT rules" "pfctl -s nat"
     run_ssh "$OPNSENSE_LAN" "Firewall rules" "pfctl -s rules"
-    run_ssh "$OPNSENSE_LAN" "DHCP service status" "pluginctl -s dhcpd"
+    run_ssh "$OPNSENSE_LAN" "DHCP service status" "configctl kea status 2>&1 || echo 'kea status failed'"
     run_ssh "$OPNSENSE_LAN" "DNS service status" "service unbound status"
     run_ssh "$OPNSENSE_LAN" "Listening ports" "sockstat -4 -l"
-    run_ssh "$OPNSENSE_LAN" "System log (last 50)" "clog /var/log/system.log | tail -50"
-    run_ssh "$OPNSENSE_LAN" "Filter log (last 50)" "clog /var/log/filter.log | tail -50"
-    run_ssh "$OPNSENSE_LAN" "DHCP leases" "cat /tmp/dhcpd.leases"
+    run_ssh "$OPNSENSE_LAN" "System log (last 50)" "cat /var/log/system/latest.log 2>/dev/null | tail -50 || echo 'log not found'"
+    run_ssh "$OPNSENSE_LAN" "Filter log (last 50)" "cat /var/log/filter/latest.log 2>/dev/null | tail -50 || echo 'log not found'"
+    run_ssh "$OPNSENSE_LAN" "DHCP leases" "cat /var/lib/kea/kea-leases4.csv 2>/dev/null || echo 'lease file not found'"
     run_ssh "$OPNSENSE_LAN" "Kernel messages (last 50)" "dmesg | tail -50"
 else
     log_warn "  SSH to OPNsense failed — recording failure"

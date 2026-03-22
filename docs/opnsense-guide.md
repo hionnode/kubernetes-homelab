@@ -1,8 +1,8 @@
-# OPNsense Troubleshooting Guide
+# OPNsense Guide
 
-Systematic troubleshooting playbook for OPNsense in a Kubernetes homelab — covering VM failures, network outages, service breakdowns, and recovery procedures.
+Comprehensive OPNsense reference for a Kubernetes homelab — covering configuration, troubleshooting, VM failures, network outages, service breakdowns, and recovery procedures.
 
-**Applies to:** OPNsense 25.7 on Proxmox VE 8.x, VM ID 101
+**Applies to:** OPNsense 25.x on Proxmox VE 8.x, VM ID 101
 
 **Related docs:**
 - [opnsense-configuration-guide.md](opnsense-configuration-guide.md) — correct config values to validate against
@@ -22,7 +22,10 @@ Systematic troubleshooting playbook for OPNsense in a Kubernetes homelab — cov
 5. [VM-Level Failures](#5-vm-level-failures)
 6. [Interface & Link Failures](#6-interface--link-failures)
 7. [DHCP Failures](#7-dhcp-failures)
+   - [7.6 Kea DHCP Reservation Not Registering Device](#76-kea-dhcp-reservation-not-registering-device)
+   - [7.7 Kea DHCP vs ISC DHCP Reference](#77-kea-dhcp-vs-isc-dhcp-reference-opnsense-25-migration)
 8. [DNS Resolution Failures](#8-dns-resolution-failures)
+   - [8.6 Unbound DNS Not Running Despite Correct Configuration](#86-unbound-dns-not-running-despite-correct-configuration)
 9. [NAT & Routing Failures](#9-nat--routing-failures)
 10. [Firewall Rule Issues](#10-firewall-rule-issues)
 11. [WebGUI Access Issues](#11-webgui-access-issues)
@@ -104,7 +107,7 @@ qm monitor 101                   # Enter QEMU monitor
 ```bash
 pfctl -d                          # Disable firewall (emergency access)
 pfctl -e                          # Re-enable firewall
-pluginctl -s dhcpd                # Restart DHCP
+configctl kea restart             # Restart DHCP (Kea)
 service unbound restart           # Restart DNS
 configctl interface reconfigure   # Reconfigure all interfaces
 ```
@@ -356,8 +359,8 @@ service unbound status                     # DNS status
 sockstat -4 -l                            # Listening ports
 
 # Logs
-clog /var/log/system.log | tail -50       # System log
-clog /var/log/filter.log | tail -50       # Firewall log
+cat /var/log/system/latest.log | tail -50  # System log (OPNsense 25)
+cat /var/log/filter/latest.log | tail -50  # Firewall log (OPNsense 25)
 cat /tmp/dhcpd.leases                      # Current DHCP leases
 ```
 
@@ -835,29 +838,29 @@ xdg-open http://10.0.0.2  # Linux
 **Triage from OPNsense console:**
 
 ```bash
-# Check if DHCP service is running
-pluginctl -s dhcpd
+# Check if Kea DHCP service is running
+configctl kea status
 # If not running:
-pluginctl -s dhcpd start
+configctl kea start
 
 # Alternatively
-service dhcpd status
-service dhcpd start
+service kea status
+service kea start
 
-# Check DHCP configuration
-cat /var/dhcpd/etc/dhcpd.conf
-# Verify: subnet 10.0.0.0 netmask 255.255.255.0 with correct range
+# Check Kea DHCP configuration (JSON format)
+cat /usr/local/etc/kea/kea-dhcp4.conf
+# Verify: subnet 10.0.0.0/24 with correct pool range
 
 # Check for errors in logs
-clog /var/log/system.log | grep dhcpd
+grep -i kea /var/log/system/latest.log
 ```
 
 **Common causes:**
 
 | Cause | Diagnosis | Fix |
 |-------|-----------|-----|
-| DHCP service not running | `pluginctl -s dhcpd` returns error | Start service, check why it stopped |
-| DHCP not enabled on LAN | Config shows no LAN pool | WebGUI → Services → DHCPv4 → LAN → Enable |
+| Kea DHCP service not running | `configctl kea status` returns error | Start service, check why it stopped |
+| DHCP not enabled on LAN | Config shows no LAN pool | WebGUI → Services → Kea DHCP → enable on LAN |
 | LAN interface down | `ifconfig vtnet1` shows DOWN | Fix interface first ([Section 6.3](#63-lan-interface-down-vtnet1)) |
 | Pool range invalid | Range doesn't match subnet | Fix to 10.0.0.100-200 per config guide |
 
@@ -885,12 +888,12 @@ sudo networksetup -setdhcp "Ethernet"
 **Triage:**
 
 ```bash
-# Check lease pool utilization
-cat /tmp/dhcpd.leases | grep "^lease" | wc -l
+# Check lease pool utilization (Kea uses CSV lease file)
+cat /var/lib/kea/kea-leases4.csv | wc -l
 # Compare with pool size (10.0.0.100-200 = 101 addresses)
 
 # Check for specific MAC in leases
-cat /tmp/dhcpd.leases | grep -A5 "xx:xx:xx:xx:xx:xx"
+grep "xx:xx:xx:xx:xx:xx" /var/lib/kea/kea-leases4.csv
 ```
 
 **Common causes:**
@@ -921,13 +924,13 @@ sudo nmap --script broadcast-dhcp-discover -e en0
 
 If a rogue DHCP server responds (another device on the LAN advertising DHCP), identify and disable it. Common culprits: consumer routers/APs plugged into the LAN in router mode instead of AP mode.
 
-### 7.4 Static Mappings Not Working (Talos Nodes)
+### 7.4 Reservations Not Working (Talos Nodes)
 
 **Symptoms:**
-- Talos nodes getting dynamic IPs instead of their static assignments
+- Talos nodes getting dynamic IPs instead of their reserved assignments
 - Node appears in DHCP leases with wrong IP
 
-**Cause:** The MAC address in the static mapping doesn't match the node's actual MAC. This commonly happens after:
+**Cause:** The MAC address (hw-address) in the reservation doesn't match the node's actual MAC. This commonly happens after:
 - VM recreation (talos-cp-1 on Proxmox gets a new MAC)
 - Physical NIC replacement
 - PXE boot vs OS boot using different NICs
@@ -941,14 +944,14 @@ If a rogue DHCP server responds (another device on the LAN advertising DHCP), id
 qm config 200 | grep net
 # Look for: net0: virtio=XX:XX:XX:XX:XX:XX,bridge=vmbr1
 
-# For physical nodes, check DHCP leases on OPNsense
-cat /tmp/dhcpd.leases | grep -B5 "10.0.0."
+# For physical nodes, check Kea DHCP leases on OPNsense
+grep "10.0.0." /var/lib/kea/kea-leases4.csv
 ```
 
-2. Update the static mapping in OPNsense WebGUI:
-   - Services → DHCPv4 → LAN → scroll to Static Mappings
+2. Update the reservation in OPNsense WebGUI:
+   - Services → Kea DHCP → Reservations
    - Edit the entry for the affected node
-   - Update the MAC address
+   - Update the MAC address (must be lowercase colon-separated: `aa:bb:cc:dd:ee:ff`)
    - Save → Apply
 
 ### 7.5 DHCP Diagnostics from Client
@@ -976,6 +979,220 @@ ipconfig getpacket en0
 # Watch DHCP traffic
 sudo tcpdump -i en0 port 67 or port 68 -vv
 ```
+
+### 7.6 Kea DHCP Reservation Not Registering Device
+
+**Symptoms:**
+- DHCP reservation configured for a device (e.g., TP-Link SG2008 switch at 10.0.0.2)
+- Device does not receive the reserved IP address
+- Device either gets a dynamic IP from the pool or no IP at all
+- Reservation appears correct in WebGUI → Services → Kea DHCP → Reservations
+
+**OPNsense 25-specific context:** OPNsense 25.1 replaced ISC DHCP with Kea DHCP. Kea uses JSON configuration and has different reservation matching behavior than ISC DHCP.
+
+**Step-by-step diagnosis:**
+
+**1. Verify Kea is actually running (not ISC DHCP)**
+
+The ISC-to-Kea migration may not have completed properly after upgrade:
+
+```bash
+# Check Kea service status
+configctl kea status
+
+# Verify which process owns port 67
+sockstat -4 -l | grep :67
+# Expected: kea-dhcp4
+# Bad: dhcpd (means ISC DHCP is still running)
+```
+
+If ISC DHCP is still running, navigate to Services → Kea DHCP in WebGUI and enable it, which disables ISC DHCP.
+
+**2. Check Kea configuration file**
+
+```bash
+cat /usr/local/etc/kea/kea-dhcp4.conf
+```
+
+Look for a `reservations` array inside the subnet declaration. Example of a correct reservation:
+
+```json
+{
+  "hw-address": "aa:bb:cc:dd:ee:ff",
+  "ip-address": "10.0.0.2",
+  "hostname": "tp-link-switch"
+}
+```
+
+**3. Verify MAC address format (case sensitivity)**
+
+Kea requires **lowercase, colon-separated hex** for MAC addresses:
+- Correct: `aa:bb:cc:dd:ee:ff`
+- Wrong: `AA:BB:CC:DD:EE:FF`, `aa-bb-cc-dd-ee-ff`, `aabb.ccdd.eeff`
+
+> [!WARNING]
+> **Real-world finding:** The OPNsense WebGUI may write **uppercase** MACs to the Kea config file. For example, a reservation entered via WebGUI can produce `"hw-address": "3C:64:CF:B2:49:9B"` in `/usr/local/etc/kea/kea-dhcp4.conf`. While Kea documentation claims case-insensitive matching, uppercase MACs combined with `match-client-id: true` and stale declined leases have been observed to prevent allocation entirely.
+
+Verify the actual config:
+
+```bash
+# Check what MAC format is in the config
+grep hw-address /usr/local/etc/kea/kea-dhcp4.conf
+```
+
+Find the device's actual MAC:
+
+```bash
+# From OPNsense console
+arp -a | grep 10.0.0
+```
+
+If the MAC is uppercase in the config, edit it to lowercase or re-create the reservation.
+
+**4. Check Kea lease database**
+
+```bash
+cat /var/lib/kea/kea-leases4.csv
+# Look for the device's MAC address
+grep "aa:bb:cc:dd:ee:ff" /var/lib/kea/kea-leases4.csv
+```
+
+If the MAC appears with a different IP, there may be a stale lease. Kea honors existing leases over new reservations until the lease expires.
+
+**5. Check hw-address vs client-id mismatch**
+
+Some managed switches send a DHCP client identifier (option 61) that differs from their MAC address. If the reservation uses `hw-address` but the device identifies via `client-id`, Kea won't match.
+
+```bash
+# Check Kea logs for the actual identifiers sent by the device
+grep -i kea /var/log/system/latest.log | grep -i "DHCPDISCOVER\|DHCPREQUEST" | tail -20
+```
+
+If you see a `client-id` that differs from the MAC, update the reservation to use `client-id` instead:
+
+```json
+{
+  "client-id": "01:aa:bb:cc:dd:ee:ff",
+  "ip-address": "10.0.0.2"
+}
+```
+
+**6. Verify reserved IP is within the subnet scope**
+
+The reserved IP (e.g., 10.0.0.2) must be within the configured subnet (10.0.0.0/24) but does **NOT** need to be within the dynamic pool range (10.0.0.100-200). Verify the subnet declaration in Kea config covers 10.0.0.0/24.
+
+**7. Restart Kea and trigger a new DHCP request**
+
+```bash
+# Restart Kea and watch logs
+configctl kea restart
+# Then watch for the device's DHCP request
+tail -f /var/log/system/latest.log | grep -i kea
+```
+
+Trigger a DHCP request from the device by rebooting it or disconnecting/reconnecting its uplink cable.
+
+**8. Critical check: Is the device actually making DHCP requests?**
+
+Some managed switches default to a **static IP** and won't make DHCP requests at all:
+- **TP-Link SG2008** defaults to static IP `192.168.0.1`
+- The switch must be set to DHCP mode in its own management interface first
+- Access the switch management UI at its default IP, then change the IP configuration to DHCP
+
+If the switch is using a static IP, no DHCP reservation will ever apply — the switch never sends a DHCPDISCOVER.
+
+**9. Check for stale declined lease blocking reservation**
+
+> [!IMPORTANT]
+> This is the most common cause of Kea reservation failures on OPNsense 25. A "declined" lease in the database blocks ALL future allocations for that IP — including valid reservations.
+
+When a DHCP client declines an offered address (e.g., because it detected an ARP conflict on the network), Kea marks the lease as "declined" with a default 24-hour hold (`decline-probation-period`: 86400s). If the lease database is corrupted or the declined state persists beyond the probation period, it permanently blocks the reserved IP.
+
+**Log signature** (check with `grep -i kea /var/log/system/latest.log | grep -i "CONFLICT\|ALLOC_FAIL"`):
+
+```
+ALLOC_ENGINE_V4_DISCOVER_ADDRESS_CONFLICT: conflicting reservation for address 10.0.0.2 with existing lease
+ALLOC_ENGINE_V4_ALLOC_FAIL: failed to allocate an IPv4 address after 101 attempt(s)
+ALLOC_ENGINE_V4_ALLOC_FAIL_SUBNET: failed to allocate an IPv4 lease in the subnet 10.0.0.0/24
+```
+
+**Diagnose — check the lease database for declined entries:**
+
+```bash
+# Check for declined leases (state=2 in CSV)
+grep "10.0.0.2" /var/lib/kea/kea-leases4.csv
+# A declined lease will show state=2 with an empty or mismatched hardware address
+
+# Or query via Kea control socket
+echo '{"command": "lease4-get", "arguments": {"ip-address": "10.0.0.2"}}' | \
+  socat UNIX:/var/run/kea/kea4-ctrl-socket.sock -
+```
+
+**Fix — delete the stale declined lease:**
+
+Option A — via Kea control socket (preferred, no restart needed):
+
+```bash
+echo '{"command": "lease4-del", "arguments": {"ip-address": "10.0.0.2"}}' | \
+  socat UNIX:/var/run/kea/kea4-ctrl-socket.sock -
+```
+
+Option B — via WebGUI: Services → Kea DHCP → Leases → find the 10.0.0.2 entry → delete it.
+
+Option C — manual CSV edit (if control socket unavailable):
+
+```bash
+configctl kea stop
+# Edit /var/lib/kea/kea-leases4.csv — remove the line containing 10.0.0.2 with state=2
+vi /var/lib/kea/kea-leases4.csv
+configctl kea start
+```
+
+After clearing the lease, trigger a new DHCP request from the device (power cycle or reconnect uplink), then verify:
+
+```bash
+tail -f /var/log/system/latest.log | grep -i kea
+# Should now show: DHCP4_LEASE_ALLOC ... 10.0.0.2 for the device
+```
+
+**Prevention — reduce the decline probation period:**
+
+Edit `/usr/local/etc/kea/kea-dhcp4.conf` (or via WebGUI advanced settings) and add at the top level:
+
+```json
+"decline-probation-period": 3600
+```
+
+This reduces the hold time for declined addresses from 24 hours to 1 hour.
+
+**Diagnostic summary:**
+
+| Check | Command | Expected | If Wrong |
+|-------|---------|----------|----------|
+| Kea running | `sockstat -4 -l \| grep :67` | `kea-dhcp4` | Enable Kea in WebGUI |
+| Config correct | `cat /usr/local/etc/kea/kea-dhcp4.conf` | Reservation present | Add reservation via WebGUI |
+| MAC format | Check reservation entry | Lowercase colon-separated | Fix MAC format |
+| Lease conflict | `grep MAC /var/lib/kea/kea-leases4.csv` | No conflicting lease | Wait for expiry or clear leases |
+| **Declined lease** | `grep "10.0.0.2" /var/lib/kea/kea-leases4.csv` | No state=2 entry | Delete via control socket or CSV edit |
+| client-id match | Check Kea logs for identifiers | hw-address matches | Switch to client-id reservation |
+| Device requests DHCP | `tail -f /var/log/system/latest.log \| grep kea` | DHCPDISCOVER seen | Set device to DHCP mode |
+
+### 7.7 Kea DHCP vs ISC DHCP Reference (OPNsense 25 Migration)
+
+OPNsense 25.1 replaced ISC DHCP with Kea DHCP. Use this table when following older guides or migrating configurations:
+
+| Task | ISC DHCP (pre-25.1) | Kea DHCP (25.1+) |
+|------|---------------------|-------------------|
+| Service status | `service dhcpd status` | `configctl kea status` |
+| Restart service | `pluginctl -s dhcpd` | `configctl kea restart` |
+| Config file | `/var/dhcpd/etc/dhcpd.conf` | `/usr/local/etc/kea/kea-dhcp4.conf` |
+| Config format | ISC conf syntax | JSON |
+| Lease file | `/tmp/dhcpd.leases` | `/var/lib/kea/kea-leases4.csv` |
+| Lease format | Text blocks | CSV |
+| WebGUI path | Services → DHCPv4 | Services → Kea DHCP |
+| Static entries | "Static Mappings" | "Reservations" |
+| Reservation match | MAC address only | `hw-address` or `client-id` |
+| Log keyword | `dhcpd` | `kea` |
 
 ---
 
@@ -1006,7 +1223,7 @@ sockstat -4 -l | grep :53
 cat /var/unbound/unbound.conf | head -50
 
 # Check for errors
-clog /var/log/system.log | grep unbound
+grep -i unbound /var/log/system/latest.log
 ```
 
 **Common causes:**
@@ -1140,6 +1357,167 @@ Run these tests from your workstation to pinpoint the failure:
 | `dig @10.0.0.1 google.com +tcp` | TCP DNS works | Firewall blocking TCP/53 |
 | `ping 10.0.0.1` then `dig @10.0.0.1 ...` | Separate reachability from DNS | If ping works but dig fails → port 53 blocked |
 
+### 8.6 Unbound DNS Not Running Despite Correct Configuration
+
+**Symptoms:**
+- Unbound shows as "stopped" in Services → Unbound DNS status
+- `service unbound status` returns "unbound is not running"
+- All DNS settings appear correct in the WebGUI (enabled, correct interfaces, forwarding configured)
+- Restarting via WebGUI or `service unbound start` fails silently or starts then immediately stops
+- All name resolution from LAN fails, but IP-based connectivity works
+
+**This is a known pattern on OPNsense 25.x. However, first rule out a false alarm — Unbound may actually be running fine.**
+
+**Step-by-step diagnosis:**
+
+**0. First check: Is Unbound actually running? (PID file mismatch)**
+
+> [!IMPORTANT]
+> **Real-world finding:** `service unbound status` can report "not running" even when Unbound IS running and serving DNS correctly. This happens when the PID file (`/var/run/unbound.pid`) gets out of sync with the actual process — common after OPNsense updates or unclean restarts.
+
+```bash
+# Check if unbound is actually listening on port 53
+sockstat -4 -l | grep :53
+
+# Check the actual process
+pgrep -l unbound
+
+# Test DNS directly
+dig @10.0.0.1 google.com
+```
+
+If `sockstat` shows unbound on port 53 and `dig` works, **Unbound IS running** — the `service` command is just confused. Fix the PID file:
+
+```bash
+# Update PID file to match running process
+pgrep -f "/var/unbound/unbound.conf" > /var/run/unbound.pid
+# Verify
+service unbound status
+```
+
+If Unbound is genuinely not running (nothing on port 53, dig fails), continue with the steps below.
+
+**1. Check for configuration validation errors**
+
+```bash
+unbound-checkconf /var/unbound/unbound.conf
+```
+
+Unbound will refuse to start if config validation fails. The WebGUI may not show the error. If errors appear, they will point to the exact line and problem in the config.
+
+**2. Check for port 53 conflicts**
+
+```bash
+sockstat -4 -l | grep :53
+```
+
+If Dnsmasq or another DNS service is running (common after migration or plugin changes), it occupies port 53 and Unbound cannot bind. If you see a process other than `unbound`:
+
+```bash
+# Identify and stop the conflicting service
+service <conflicting-service> stop
+# Then start Unbound
+service unbound start
+```
+
+**3. Check system logs for the actual error**
+
+```bash
+grep -i unbound /var/log/system/latest.log | tail -30
+```
+
+The actual failure reason is almost always in the system log even when the WebGUI shows nothing. Common errors:
+- `could not bind to port 53` → port conflict (step 2)
+- `error reading root anchor` → DNSSEC root anchor issue (step 6)
+- `fatal error: out of memory` → memory issue (step 7)
+- `cannot open /var/unbound/unbound.conf` → config file missing or permissions
+
+**4. Check if the service is enabled in the backend**
+
+```bash
+sysrc -a | grep unbound
+```
+
+Sometimes FreeBSD's `rc.conf` does not have `unbound_enable="YES"` even though the WebGUI shows Unbound as enabled. This can happen after updates or config resets.
+
+```bash
+# Fix if missing
+sysrc unbound_enable=YES
+service unbound start
+```
+
+**5. Check for stale PID file**
+
+```bash
+ls -la /var/run/unbound.pid
+```
+
+A stale PID file from a crash can prevent Unbound from starting (it thinks another instance is running).
+
+```bash
+# Fix: remove stale PID and start
+rm /var/run/unbound.pid
+service unbound start
+```
+
+**6. Check for DNSSEC root anchor issues**
+
+```bash
+ls -la /var/unbound/root.key
+```
+
+If the root trust anchor file is missing or corrupted (common after fresh install or major OPNsense update), Unbound with DNSSEC enabled will fail to start.
+
+```bash
+# Regenerate the root anchor
+unbound-anchor -a /var/unbound/root.key
+service unbound start
+```
+
+If this fails, temporarily disable DNSSEC in WebGUI → Services → Unbound DNS → General → uncheck "DNSSEC" → Apply, then investigate the root anchor issue separately.
+
+**7. Check available memory**
+
+```bash
+top -b -n 1 | head -5
+```
+
+Unbound can fail to start or crash immediately if the VM is low on memory. This is especially common if:
+- Large DNS blocklists are configured (adblock plugin)
+- The OPNsense VM only has 2GB RAM
+- Other services are consuming memory
+
+Fix: Increase VM memory in Proxmox (`qm set 101 -memory 4096`) or reduce blocklist size.
+
+**8. Nuclear option: toggle via WebGUI**
+
+If all else fails, force OPNsense to regenerate the config from scratch:
+
+1. WebGUI → Services → Unbound DNS → General → **uncheck** "Enable Unbound" → Save → Apply
+2. Wait 10 seconds
+3. **Re-check** "Enable Unbound" → Save → Apply
+
+This forces OPNsense to regenerate `/var/unbound/unbound.conf` from the WebGUI settings, bypassing any manual config corruption.
+
+**Diagnostic summary:**
+
+| Check | Command | Expected | If Wrong |
+|-------|---------|----------|----------|
+| Config valid | `unbound-checkconf /var/unbound/unbound.conf` | "no errors" | Fix the config errors shown |
+| Port 53 free | `sockstat -4 -l \| grep :53` | Empty or `unbound` only | Stop conflicting service |
+| Service enabled | `sysrc -a \| grep unbound` | `unbound_enable=YES` | `sysrc unbound_enable=YES` |
+| No stale PID | `ls /var/run/unbound.pid` | File missing or current PID | `rm /var/run/unbound.pid` |
+| Root anchor exists | `ls /var/unbound/root.key` | File exists, recent date | `unbound-anchor -a /var/unbound/root.key` |
+| Sufficient memory | `top -b -n 1` | Free mem > 100MB | Increase VM memory or reduce blocklists |
+| Logs show cause | `grep -i unbound /var/log/system/latest.log` | No fatal errors | Address the specific error |
+
+> [!TIP]
+> **Collecting logs for offline analysis:** Use `scripts/collect-opnsense-logs.sh` to pull Unbound logs, Kea logs, configs, and service status from OPNsense via SSH. This is useful when the WebGUI doesn't surface errors clearly.
+> ```bash
+> ./scripts/collect-opnsense-logs.sh              # defaults to root@10.0.0.1
+> ./scripts/collect-opnsense-logs.sh 192.168.1.x  # use WAN IP if LAN is down
+> ```
+
 ---
 
 ## 9. NAT & Routing Failures
@@ -1254,7 +1632,7 @@ pfctl -s state | grep 10.0.0.5
 
 ```bash
 # From OPNsense console — check firewall log for blocks
-clog /var/log/filter.log | tail -100
+cat /var/log/filter/latest.log | tail -100
 
 # Check if DNS blocklist is the cause (ad blocking)
 # Try resolving the blocked domain directly
@@ -1321,7 +1699,7 @@ OPNsense evaluates firewall rules in a specific order. Understanding this is cri
 
 ```bash
 # From OPNsense console
-clog /var/log/filter.log | tail -f
+tail -f /var/log/filter/latest.log
 # Generate the blocked traffic from the client
 # Look for: block entries with src/dst matching your traffic
 ```
@@ -1626,7 +2004,7 @@ opnsense-version
 pkg info | head -20
 
 # Check for recent error messages
-clog /var/log/system.log | grep -i error | tail -20
+grep -i error /var/log/system/latest.log | tail -20
 
 # Check if services restarted properly
 service -e    # List enabled services
@@ -2040,7 +2418,7 @@ ping 10.0.0.5
 arp -a | grep "10.0.0.5"
 
 # Check if traffic is being blocked
-clog /var/log/filter.log | grep "10.0.0.5"
+grep "10.0.0.5" /var/log/filter/latest.log
 ```
 
 **Common causes:**
