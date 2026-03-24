@@ -194,7 +194,7 @@ if ssh $SSH_OPTS "root@$OPNSENSE_LAN" "echo ok" >/dev/null 2>&1; then
     run_ssh "$OPNSENSE_LAN" "Listening ports" "sockstat -4 -l"
     run_ssh "$OPNSENSE_LAN" "System log (last 50)" "cat /var/log/system/latest.log 2>/dev/null | tail -50 || echo 'log not found'"
     run_ssh "$OPNSENSE_LAN" "Filter log (last 50)" "cat /var/log/filter/latest.log 2>/dev/null | tail -50 || echo 'log not found'"
-    run_ssh "$OPNSENSE_LAN" "DHCP leases" "cat /var/lib/kea/kea-leases4.csv 2>/dev/null || echo 'lease file not found'"
+    run_ssh "$OPNSENSE_LAN" "DHCP leases" "cat /var/db/kea/kea-leases4.csv 2>/dev/null || echo 'lease file not found'"
     run_ssh "$OPNSENSE_LAN" "Kernel messages (last 50)" "dmesg | tail -50"
 else
     log_warn "  SSH to OPNsense failed — recording failure"

@@ -112,7 +112,7 @@ collect_file "Unbound config"      "/var/unbound/unbound.conf"            "unbou
 
 echo ""
 log_info "=== Lease Database ==="
-collect_file "Kea lease database"  "/var/lib/kea/kea-leases4.csv"        "kea-leases4.csv"
+collect_file "Kea lease database"  "/var/db/kea/kea-leases4.csv"        "kea-leases4.csv"
 
 echo ""
 log_info "=== Network State ==="
@@ -125,10 +125,10 @@ log_info "=== Quick Analysis ==="
 
 # Check for declined leases
 if [ -f "${OUTDIR}/kea-leases4.csv" ]; then
-    declined=$(grep -c ",2," "${OUTDIR}/kea-leases4.csv" 2>/dev/null || echo "0")
+    declined=$(awk -F, '$10 == "1"' "${OUTDIR}/kea-leases4.csv" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$declined" -gt 0 ]; then
-        log_warn "Found ${declined} declined lease(s) in Kea database:"
-        grep ",2," "${OUTDIR}/kea-leases4.csv" | head -5
+        log_warn "Found ${declined} declined lease(s) in Kea database (state=1):"
+        awk -F, '$10 == "1"' "${OUTDIR}/kea-leases4.csv" | head -5
         echo "  (See docs/opnsense-guide.md Section 7.6 step 9 for fix)"
     else
         log_info "No declined leases found in Kea database"

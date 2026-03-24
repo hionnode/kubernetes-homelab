@@ -852,7 +852,7 @@ cat /usr/local/etc/kea/kea-dhcp4.conf
 # Verify: subnet 10.0.0.0/24 with correct pool range
 
 # Check for errors in logs
-grep -i kea /var/log/system/latest.log
+grep -i kea /var/log/kea/latest.log
 ```
 
 **Common causes:**
@@ -889,11 +889,11 @@ sudo networksetup -setdhcp "Ethernet"
 
 ```bash
 # Check lease pool utilization (Kea uses CSV lease file)
-cat /var/lib/kea/kea-leases4.csv | wc -l
+cat /var/db/kea/kea-leases4.csv | wc -l
 # Compare with pool size (10.0.0.100-200 = 101 addresses)
 
 # Check for specific MAC in leases
-grep "xx:xx:xx:xx:xx:xx" /var/lib/kea/kea-leases4.csv
+grep "xx:xx:xx:xx:xx:xx" /var/db/kea/kea-leases4.csv
 ```
 
 **Common causes:**
@@ -945,7 +945,7 @@ qm config 200 | grep net
 # Look for: net0: virtio=XX:XX:XX:XX:XX:XX,bridge=vmbr1
 
 # For physical nodes, check Kea DHCP leases on OPNsense
-grep "10.0.0." /var/lib/kea/kea-leases4.csv
+grep "10.0.0." /var/db/kea/kea-leases4.csv
 ```
 
 2. Update the reservation in OPNsense WebGUI:
@@ -1052,9 +1052,9 @@ If the MAC is uppercase in the config, edit it to lowercase or re-create the res
 **4. Check Kea lease database**
 
 ```bash
-cat /var/lib/kea/kea-leases4.csv
+cat /var/db/kea/kea-leases4.csv
 # Look for the device's MAC address
-grep "aa:bb:cc:dd:ee:ff" /var/lib/kea/kea-leases4.csv
+grep "aa:bb:cc:dd:ee:ff" /var/db/kea/kea-leases4.csv
 ```
 
 If the MAC appears with a different IP, there may be a stale lease. Kea honors existing leases over new reservations until the lease expires.
@@ -1065,7 +1065,7 @@ Some managed switches send a DHCP client identifier (option 61) that differs fro
 
 ```bash
 # Check Kea logs for the actual identifiers sent by the device
-grep -i kea /var/log/system/latest.log | grep -i "DHCPDISCOVER\|DHCPREQUEST" | tail -20
+grep -i kea /var/log/kea/latest.log | grep -i "DHCPDISCOVER\|DHCPREQUEST" | tail -20
 ```
 
 If you see a `client-id` that differs from the MAC, update the reservation to use `client-id` instead:
@@ -1087,7 +1087,7 @@ The reserved IP (e.g., 10.0.0.2) must be within the configured subnet (10.0.0.0/
 # Restart Kea and watch logs
 configctl kea restart
 # Then watch for the device's DHCP request
-tail -f /var/log/system/latest.log | grep -i kea
+tail -f /var/log/kea/latest.log
 ```
 
 Trigger a DHCP request from the device by rebooting it or disconnecting/reconnecting its uplink cable.
@@ -1108,7 +1108,7 @@ If the switch is using a static IP, no DHCP reservation will ever apply — the 
 
 When a DHCP client declines an offered address (e.g., because it detected an ARP conflict on the network), Kea marks the lease as "declined" with a default 24-hour hold (`decline-probation-period`: 86400s). If the lease database is corrupted or the declined state persists beyond the probation period, it permanently blocks the reserved IP.
 
-**Log signature** (check with `grep -i kea /var/log/system/latest.log | grep -i "CONFLICT\|ALLOC_FAIL"`):
+**Log signature** (check with `grep -i kea /var/log/kea/latest.log | grep -i "CONFLICT\|ALLOC_FAIL"`):
 
 ```
 ALLOC_ENGINE_V4_DISCOVER_ADDRESS_CONFLICT: conflicting reservation for address 10.0.0.2 with existing lease
@@ -1119,13 +1119,14 @@ ALLOC_ENGINE_V4_ALLOC_FAIL_SUBNET: failed to allocate an IPv4 lease in the subne
 **Diagnose — check the lease database for declined entries:**
 
 ```bash
-# Check for declined leases (state=2 in CSV)
-grep "10.0.0.2" /var/lib/kea/kea-leases4.csv
-# A declined lease will show state=2 with an empty or mismatched hardware address
+# Check for declined leases (state=1 in CSV, column 10)
+grep "10.0.0.2" /var/db/kea/kea-leases4.csv
+# A declined lease will show state=1 with an empty hardware address
+# CSV states: 0=active, 1=declined, 2=expired-reclaimed
 
 # Or query via Kea control socket
 echo '{"command": "lease4-get", "arguments": {"ip-address": "10.0.0.2"}}' | \
-  socat UNIX:/var/run/kea/kea4-ctrl-socket.sock -
+  socat UNIX:/var/run/kea/kea4-ctrl-socket -
 ```
 
 **Fix — delete the stale declined lease:**
@@ -1134,7 +1135,7 @@ Option A — via Kea control socket (preferred, no restart needed):
 
 ```bash
 echo '{"command": "lease4-del", "arguments": {"ip-address": "10.0.0.2"}}' | \
-  socat UNIX:/var/run/kea/kea4-ctrl-socket.sock -
+  socat UNIX:/var/run/kea/kea4-ctrl-socket -
 ```
 
 Option B — via WebGUI: Services → Kea DHCP → Leases → find the 10.0.0.2 entry → delete it.
@@ -1143,15 +1144,15 @@ Option C — manual CSV edit (if control socket unavailable):
 
 ```bash
 configctl kea stop
-# Edit /var/lib/kea/kea-leases4.csv — remove the line containing 10.0.0.2 with state=2
-vi /var/lib/kea/kea-leases4.csv
+# Edit /var/db/kea/kea-leases4.csv — remove the line containing 10.0.0.2 with state=1 (declined)
+vi /var/db/kea/kea-leases4.csv
 configctl kea start
 ```
 
 After clearing the lease, trigger a new DHCP request from the device (power cycle or reconnect uplink), then verify:
 
 ```bash
-tail -f /var/log/system/latest.log | grep -i kea
+tail -f /var/log/kea/latest.log
 # Should now show: DHCP4_LEASE_ALLOC ... 10.0.0.2 for the device
 ```
 
@@ -1160,10 +1161,10 @@ tail -f /var/log/system/latest.log | grep -i kea
 Edit `/usr/local/etc/kea/kea-dhcp4.conf` (or via WebGUI advanced settings) and add at the top level:
 
 ```json
-"decline-probation-period": 3600
+"decline-probation-period": 60
 ```
 
-This reduces the hold time for declined addresses from 24 hours to 1 hour.
+This reduces the hold time for declined addresses from 24 hours (86400s) to 60 seconds. In homelabs with managed switches that aggressively decline IPs, a short probation period prevents address pool exhaustion.
 
 **Diagnostic summary:**
 
@@ -1172,10 +1173,24 @@ This reduces the hold time for declined addresses from 24 hours to 1 hour.
 | Kea running | `sockstat -4 -l \| grep :67` | `kea-dhcp4` | Enable Kea in WebGUI |
 | Config correct | `cat /usr/local/etc/kea/kea-dhcp4.conf` | Reservation present | Add reservation via WebGUI |
 | MAC format | Check reservation entry | Lowercase colon-separated | Fix MAC format |
-| Lease conflict | `grep MAC /var/lib/kea/kea-leases4.csv` | No conflicting lease | Wait for expiry or clear leases |
-| **Declined lease** | `grep "10.0.0.2" /var/lib/kea/kea-leases4.csv` | No state=2 entry | Delete via control socket or CSV edit |
+| Lease conflict | `grep MAC /var/db/kea/kea-leases4.csv` | No conflicting lease | Wait for expiry or clear leases |
+| **Declined lease** | `grep "10.0.0.2" /var/db/kea/kea-leases4.csv` | No state=1 entry | Delete via control socket or CSV edit |
 | client-id match | Check Kea logs for identifiers | hw-address matches | Switch to client-id reservation |
-| Device requests DHCP | `tail -f /var/log/system/latest.log \| grep kea` | DHCPDISCOVER seen | Set device to DHCP mode |
+| Device requests DHCP | `tail -f /var/log/kea/latest.log` | DHCPDISCOVER seen | Set device to DHCP mode |
+
+**Special case — managed switch declining every IP (DHCPDECLINE loop):**
+
+If you see `ALLOC_ENGINE_V4_DISCOVER_ADDRESS_CONFLICT` followed by `DHCP4_DECLINE_LEASE` for every offered IP, the device is doing DAD (Duplicate Address Detection) ARP probes and detecting phantom conflicts. This is common with managed switches (e.g., TP-Link SG2008) that bridge WAN and LAN traffic — the switch sees stray ARP responses through its own switching fabric.
+
+Signs of this problem:
+- Lease file fills with pairs: one active lease (state=0) then one declined lease (state=1) for every IP
+- The device cycles through the entire DHCP pool within minutes
+- `tcpdump -i vtnet1 arp` on OPNsense shows WAN-side ARP traffic (192.168.1.x) on the LAN interface
+
+Fix:
+1. **Set a static IP on the managed switch** via its web UI — this is the recommended approach for network infrastructure devices
+2. Set `decline-probation-period` to 60 in Kea config to prevent pool exhaustion while debugging
+3. Investigate and fix L2 isolation between WAN and LAN bridges on the hypervisor
 
 ### 7.7 Kea DHCP vs ISC DHCP Reference (OPNsense 25 Migration)
 
@@ -1187,7 +1202,7 @@ OPNsense 25.1 replaced ISC DHCP with Kea DHCP. Use this table when following old
 | Restart service | `pluginctl -s dhcpd` | `configctl kea restart` |
 | Config file | `/var/dhcpd/etc/dhcpd.conf` | `/usr/local/etc/kea/kea-dhcp4.conf` |
 | Config format | ISC conf syntax | JSON |
-| Lease file | `/tmp/dhcpd.leases` | `/var/lib/kea/kea-leases4.csv` |
+| Lease file | `/tmp/dhcpd.leases` | `/var/db/kea/kea-leases4.csv` |
 | Lease format | Text blocks | CSV |
 | WebGUI path | Services → DHCPv4 | Services → Kea DHCP |
 | Static entries | "Static Mappings" | "Reservations" |
